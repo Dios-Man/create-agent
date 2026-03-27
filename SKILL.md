@@ -77,9 +77,15 @@ metadata:
 
 ## Phase 0 — 安装后配置（首次使用前执行一次）
 
-> 只在 skill 安装后第一次使用时执行，之后跳过。
-> **判断依据：** 读取 `config/org-context.md`，检查"公司："和"业务："字段后面是否均有实质内容。
-> 任意一个为空 → 执行 Phase 0；两个都有内容 → 跳过。
+> **判断依据（按顺序检查）：**
+>
+> 1. 读取 `config/org-context.md`，检查"公司："和"业务："字段后面是否均有实质内容。
+>    任意一个为空 → 执行 Phase 0（跳过有效期检查）；两个都有内容 → 执行步骤 2。
+>
+> 2. 检查 `last_updated` 字段，计算距今天数。
+>    超过 30 天 → 提示用户确认（不强制阻断，用户确认无需调整则继续）。
+>    未超过 30 天 → 直接跳过 Phase 0。
+>
 > （不以文件是否存在为判断标准，空文件 ≠ 已填写）
 
 ### Step 1：读取记忆，自动提取
@@ -107,6 +113,9 @@ metadata:
 
 ```markdown
 # org-context.md — 组织背景预埋信息
+
+## 元信息
+- last_updated: YYYY-MM-DD
 
 ## 公司信息
 - 公司：[自动填入或用户补充]
@@ -161,7 +170,9 @@ metadata:
 #### A-1：创建目录结构
 
 ```bash
-bash scripts/create_workspace.sh <agentId> --type human
+bash scripts/create_workspace.sh <agentId> --type human --notify-open-id <调度者飞书open_id>
+# --notify-open-id 可选，传入后 HEARTBEAT.md 的闲置通知目标自动填好
+# 不传则保留 [FILL] 占位符，Phase 2 手动填充
 ```
 
 脚本创建：
@@ -269,6 +280,9 @@ bash scripts/create_workspace.sh <agentId> --type human
 
 #### A-7：生成 HEARTBEAT.md
 
+> 由 `create_workspace.sh --notify-open-id` 自动生成，包含闲置检查逻辑。
+> 传入 `--notify-open-id` 则通知目标自动填好；不传则保留 [FILL] 占位符。
+
 ```markdown
 # HEARTBEAT.md
 
@@ -277,8 +291,15 @@ bash scripts/create_workspace.sh <agentId> --type human
 2. 稳定偏好/新业务背景 → 提炼进 USER.md 或 MEMORY.md
 3. USER.md / SOUL.md 有需要更新的 → 更新
 4. 过时内容 → 删除
+5. 精炼完成后在当天 memory/ 文件里记录："Heartbeat 精炼：[摘要]"
 
-[Agent 特有的定期检查项，根据职责填写]
+## 闲置检查（每次心跳执行）
+读 memory/ 目录，找日志文件（格式 YYYY-MM-DD.md），取最新一个的日期。
+计算距今天数。如距今超过 14 天：
+  如有 feishu_im_user_message 权限 → 通知调度者
+  无权限 → 在 memory/当天文件写入闲置提醒
+
+## [FILL: Agent 特有的定期检查项]
 ```
 
 ---
@@ -338,7 +359,7 @@ BOOTSTRAP.md 内部结构：
 #### B-1：创建目录结构
 
 ```bash
-bash scripts/create_workspace.sh <agentId> --type functional
+bash scripts/create_workspace.sh <agentId> --type functional --notify-open-id <调度者飞书open_id>
 ```
 输出中会明确列出需要写入的文件，并提示不需要 USER.md / BOOTSTRAP.md。
 
@@ -437,13 +458,21 @@ bash scripts/create_workspace.sh <agentId> --type functional
 
 #### B-7：生成 HEARTBEAT.md
 
+> 同路径 A-7，由脚本自动生成，含闲置检查。
+
 ```markdown
 # HEARTBEAT.md
 
-## 任务知识精炼（每 3 天）
+## Workspace 精炼（每 3 天）
 1. 读最近 3 天 memory/ 文件
-2. 有没有新的任务经验/领域知识 → 提炼进 MEMORY.md
-3. 有没有过时的方法或错误经验 → 删除或标注已过时
+2. 新的任务经验/领域知识 → 提炼进 MEMORY.md
+3. 过时的方法或错误经验 → 删除或标注已过时
+4. 精炼完成后在当天 memory/ 文件里记录："Heartbeat 精炼：[摘要]"
+
+## 闲置检查（每次心跳执行）
+同路径 A-7，14 天无调用时通知调度者（或写入闲置提醒）。
+
+## [FILL: Agent 特有的定期检查项]
 ```
 
 ---
@@ -479,28 +508,46 @@ python3 scripts/register_agent.py \
   --agent-id <agentId> \
   --workspace ~/.openclaw/agency-agents/<agentId> \
   --parent-id <父AgentId> \
+  --agent-type human \
+  --core-duty "核心职责一句话描述" \
   --also-allow feishu_get_user feishu_im_user_message feishu_calendar_event
 ```
 
-> `--also-allow` 是空格分隔的多值参数，直接列出所有工具名即可。
-> `--agent-dir` 为**可选参数**，绝大多数情况下**不需要传**：
-> 仅在 OpenClaw 要求显式指定 agentDir（如自定义 agent 插件路径）时才传入。
-> 不传时 agentDir 字段不写入 openclaw.json，注册仍然有效。
+**可选参数：**
+- `--model`：指定模型（不传则继承默认）
+- `--heartbeat-interval`：心跳间隔分钟数（默认 60）
+- `--agent-dir`：极少数情况才需要，不传则不写入此字段
+- `--dry-run`：预览变更不写入
 
-脚本执行：
+脚本执行顺序：
 1. 备份 openclaw.json（带时间戳）
-2. 在 `agents.list` 追加新 Agent 定义
+2. 在 `agents.list` 追加新 Agent 定义（含 heartbeat + 可选 model）
 3. 在父 Agent 的 `subagents.allowAgents` 追加新 agentId（**双向绑定**）
 4. 执行 `openclaw config validate`
-5. validate 通过 → 继续；失败 → 自动回滚备份，报错退出
+5. validate 通过 → 在父 Agent MEMORY.md 追加子 Agent 档案 → 继续
+   validate 失败 → 自动回滚，报错退出
 
-💡 **首次使用或调试时**，可加 `--dry-run` 参数预览变更不写入：
+💡 **首次使用或调试时**，先加 `--dry-run` 预览：
 ```bash
 python3 scripts/register_agent.py --agent-id <agentId> ... --dry-run
 ```
 
-⚠️ **双向绑定检查**：每次必须确认两个地方都改了。
 ⚠️ **不要手动改 openclaw.json**，用脚本。
+
+---
+
+## 注销 Agent（废弃 / 员工离职）
+
+```bash
+python3 scripts/deregister_agent.py --agent-id <agentId>
+# 预览：python3 scripts/deregister_agent.py --agent-id <agentId> --dry-run
+```
+
+脚本执行：
+1. 从 `agents.list` 移除目标 Agent
+2. 从所有父 Agent 的 `allowAgents` 移除该 id（自动扫描，不会遗漏）
+3. validate + 回滚机制同注册
+4. workspace 存档到 `~/.openclaw/agency-agents/.archived/<agentId>-<时间戳>/`（不删除）
 
 ---
 
@@ -513,7 +560,14 @@ bash scripts/verify_workspace.sh <agentId> --type human      # 人伴型
 bash scripts/verify_workspace.sh <agentId> --type functional # 功能型
 ```
 
-脚本检查所有必须文件是否存在且有实质内容（不是空骨架）。
+脚本执行两层检查：
+1. **存在性 + 行数**：文件存在且有足够有效行
+2. **内容特征**：
+   - 无未填充占位符 `[FILL]` / `[AUTO]`
+   - SOUL.md 第一段包含 Agent 名字（从 IDENTITY.md 提取）
+   - AGENTS.md 包含边界声明（不做/不处理/边界等关键词）
+   - MEMORY.md 公司字段已填写
+
 有 ❌ 或 ⚠️ → 补充后重新验证，通过后再重启。
 
 ### Step 2：重启 Gateway
@@ -528,7 +582,22 @@ sleep 8   # 等待 optional 工具注册完成
 1. 确认新 Agent 在 Gateway 日志里出现
 2. 确认 alsoAllow 里的工具已注册（不以"重启完成"作为结束）
 
-⚠️ 以**"工具验证通过"**作为整个 skill 的完成标志。
+### Step 4：首次激活自检
+
+工具验证通过后，通过 `sessions_send` 向新 Agent 发一条激活消息：
+
+```
+请读取你的 workspace，用一段话说清楚：你是谁、主要职责是什么、有哪些明确不做的事。
+```
+
+收到回应后：
+- 检查回应是否包含 Agent 名字、核心职责、边界声明三要素
+- 将回应写入新 Agent 的 `memory/<今天日期>.md` 作为第一条记录（标题："首次激活自检"）
+- 回应缺少三要素之一 → workspace 有问题，检查对应文件后重新自检
+
+> 自检不是功能测试，是让 Agent 完成第一次自我认知，同时验证 workspace 被正确加载。
+
+⚠️ 以**"自检三要素通过"**作为整个 skill 的完成标志（替代原"工具验证通过"）。
 
 ---
 

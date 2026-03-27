@@ -1,9 +1,9 @@
 #!/bin/bash
-# verify_workspace.sh — 验证 Agent workspace 文件完整性
+# verify_workspace.sh — 验证 Agent workspace 文件完整性 + 内容质量
 # 用法：bash verify_workspace.sh <agentId> [--type human|functional]
 #
 # Phase 4 收尾时调用，确认 workspace 不只是空骨架。
-# 检查必须文件是否存在、是否有实质内容（不是空文件或纯模板）。
+# 检查必须文件是否存在、是否有实质内容、是否通过内容特征验证。
 
 set -e
 
@@ -42,55 +42,187 @@ echo ""
 PASS=0
 FAIL=0
 
+# ── 基础检查：文件存在 + 有效行数 ──────────────────────────────
+
 check_file() {
   local filepath="$1"
   local label="$2"
-  local min_lines="${3:-3}"   # 默认至少 3 行有实质内容
+  local min_lines="${3:-3}"
 
   if [ ! -f "$filepath" ]; then
     echo "  ❌ 缺失：$label"
     FAIL=$((FAIL + 1))
-    return
+    return 1
   fi
 
-  # 统计非空、非注释行数
   local content_lines
   content_lines=$(grep -cv '^\s*$\|^\s*#\|^\s*>\|^---' "$filepath" 2>/dev/null || true)
 
   if [ "$content_lines" -lt "$min_lines" ]; then
     echo "  ⚠️  疑似空骨架（有效行 ${content_lines} < ${min_lines}）：$label"
     FAIL=$((FAIL + 1))
+    return 1
   else
     echo "  ✅ $label（有效行 ${content_lines}）"
     PASS=$((PASS + 1))
+    return 0
   fi
 }
 
-# ── 两类 Agent 共同必须文件 ──
-echo "[ 公共文件 ]"
+# ── 内容特征检查 ───────────────────────────────────────────────
+
+# 检查文件中是否存在未填充的占位符
+check_no_placeholder() {
+  local filepath="$1"
+  local label="$2"
+
+  if grep -q '\[FILL\]' "$filepath" 2>/dev/null || \
+     grep -q '\[FILL:' "$filepath" 2>/dev/null || \
+     grep -q '\[AUTO\]' "$filepath" 2>/dev/null; then
+    echo "  ❌ 含未填充占位符 [FILL] / [AUTO]：$label"
+    FAIL=$((FAIL + 1))
+    return 1
+  else
+    echo "  ✅ 无未填充占位符：$label"
+    PASS=$((PASS + 1))
+    return 0
+  fi
+}
+
+# 检查 SOUL.md：第一行是否包含 Agent 名字（从 IDENTITY.md 提取）
+check_soul_name() {
+  local soul_path="$WORKSPACE/SOUL.md"
+  local identity_path="$WORKSPACE/IDENTITY.md"
+
+  if [ ! -f "$soul_path" ] || [ ! -f "$identity_path" ]; then
+    return 0  # 文件缺失已由 check_file 报告，这里跳过
+  fi
+
+  # 从 IDENTITY.md 提取名字（兼容 "- **Name:** 小审" 和 "**Name:** 小审" 两种格式）
+  local agent_name
+  agent_name=$(grep -m1 '\*\*Name:\*\*' "$identity_path" 2>/dev/null | sed 's/.*\*\*Name:\*\* *//' | tr -d '[]' | xargs)
+
+  if [ -z "$agent_name" ] || [[ "$agent_name" == *"FILL"* ]]; then
+    echo "  ⚠️  IDENTITY.md 名字未填写，跳过 SOUL.md 名字检查"
+    return 0
+  fi
+
+  # 检查 SOUL.md 第一段（前5行）是否包含名字
+  if head -5 "$soul_path" | grep -q "$agent_name"; then
+    echo "  ✅ SOUL.md 包含 Agent 名字（$agent_name）"
+    PASS=$((PASS + 1))
+  else
+    echo "  ❌ SOUL.md 前5行未找到名字「$agent_name」（SOUL.md 第一句话必须有名字）"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+# 检查 AGENTS.md：是否包含边界/否定声明
+check_agents_boundary() {
+  local filepath="$WORKSPACE/AGENTS.md"
+
+  if [ ! -f "$filepath" ]; then
+    return 0
+  fi
+
+  if grep -qE '不做|不处理|边界|不会|禁止|超出范围' "$filepath" 2>/dev/null; then
+    echo "  ✅ AGENTS.md 包含边界声明"
+    PASS=$((PASS + 1))
+  else
+    echo "  ❌ AGENTS.md 缺少边界声明（必须有"不做/不处理/边界"等否定条款）"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+# 检查 MEMORY.md：是否有公司信息（不是空占位符）
+check_memory_company() {
+  local filepath="$WORKSPACE/MEMORY.md"
+
+  if [ ! -f "$filepath" ]; then
+    return 0
+  fi
+
+  # 找到"公司："行，检查后面是否有实质内容
+  local company_line
+  company_line=$(grep -m1 '^- 公司：' "$filepath" 2>/dev/null || echo "")
+
+  if [ -z "$company_line" ]; then
+    echo "  ⚠️  MEMORY.md 缺少"公司："字段"
+    FAIL=$((FAIL + 1))
+  elif echo "$company_line" | grep -qE '\[FILL|（.*填写|$'; then
+    # 去掉"- 公司："前缀后检查是否为空或占位符
+    local company_val
+    company_val=$(echo "$company_line" | sed 's/^- 公司：//' | xargs)
+    if [ -z "$company_val" ] || [[ "$company_val" == *"FILL"* ]] || [[ "$company_val" == *"填写"* ]]; then
+      echo "  ❌ MEMORY.md "公司："字段未填写"
+      FAIL=$((FAIL + 1))
+    else
+      echo "  ✅ MEMORY.md 公司信息已填写：$company_val"
+      PASS=$((PASS + 1))
+    fi
+  else
+    local company_val
+    company_val=$(echo "$company_line" | sed 's/^- 公司：//' | xargs)
+    if [ -z "$company_val" ]; then
+      echo "  ❌ MEMORY.md "公司："字段为空"
+      FAIL=$((FAIL + 1))
+    else
+      echo "  ✅ MEMORY.md 公司信息已填写：$company_val"
+      PASS=$((PASS + 1))
+    fi
+  fi
+}
+
+# ── 执行检查 ───────────────────────────────────────────────────
+
+echo "[ 公共文件 — 存在性 + 行数 ]"
 check_file "$WORKSPACE/IDENTITY.md"   "IDENTITY.md"  2
-check_file "$WORKSPACE/SOUL.md"       "SOUL.md"       8
+check_file "$WORKSPACE/SOUL.md"       "SOUL.md"       5
 check_file "$WORKSPACE/AGENTS.md"     "AGENTS.md"     8
 check_file "$WORKSPACE/TOOLS.md"      "TOOLS.md"      3
 check_file "$WORKSPACE/MEMORY.md"     "MEMORY.md"     4
 check_file "$WORKSPACE/HEARTBEAT.md"  "HEARTBEAT.md"  3
 
-# ── 人伴型专属 ──
+echo ""
+echo "[ 内容特征检查 ]"
+check_no_placeholder "$WORKSPACE/IDENTITY.md"  "IDENTITY.md"
+check_no_placeholder "$WORKSPACE/SOUL.md"      "SOUL.md"
+check_no_placeholder "$WORKSPACE/AGENTS.md"    "AGENTS.md"
+check_no_placeholder "$WORKSPACE/TOOLS.md"     "TOOLS.md"
+check_no_placeholder "$WORKSPACE/MEMORY.md"    "MEMORY.md"
+check_soul_name
+check_agents_boundary
+check_memory_company
+
+# ── 人伴型专属 ────────────────────────────────────────────────
+
 if [ "$AGENT_TYPE" = "human" ]; then
   echo ""
   echo "[ 人伴型专属 ]"
-  check_file "$WORKSPACE/USER.md"     "USER.md"       3
+  check_file "$WORKSPACE/USER.md" "USER.md" 3
 
-  # BOOTSTRAP.md 在初次对话完成后会被删除，这里只检查"要么存在要么已完成"
   if [ -f "$WORKSPACE/BOOTSTRAP.md" ]; then
-    echo "  ℹ️  BOOTSTRAP.md 存在（首次对话尚未完成，属正常）"
+    # BOOTSTRAP.md 存在时检查是否仍是占位符
+    if grep -q "此文件是占位符" "$WORKSPACE/BOOTSTRAP.md" 2>/dev/null; then
+      echo "  ⚠️  BOOTSTRAP.md 仍是占位符，Phase 2 A-8 步骤尚未执行"
+      FAIL=$((FAIL + 1))
+    else
+      echo "  ℹ️  BOOTSTRAP.md 已生成（首次对话尚未完成，属正常）"
+      PASS=$((PASS + 1))
+    fi
+
+    # 检查进度文件
+    if [ -f "$WORKSPACE/memory/.bootstrap-progress.json" ]; then
+      echo "  ℹ️  断点进度文件存在：memory/.bootstrap-progress.json"
+    fi
   else
     echo "  ✅ BOOTSTRAP.md 已删除（首次对话已完成）"
     PASS=$((PASS + 1))
   fi
 fi
 
-# ── memory/ 目录 ──
+# ── 目录结构 ──────────────────────────────────────────────────
+
 echo ""
 echo "[ 目录结构 ]"
 if [ -d "$WORKSPACE/memory" ]; then
@@ -101,7 +233,8 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# ── 汇总 ──
+# ── 汇总 ─────────────────────────────────────────────────────
+
 echo ""
 echo "=== 验证结果 ==="
 echo "  通过：$PASS　失败/警告：$FAIL"
