@@ -151,7 +151,7 @@ bash scripts/create_workspace.sh <agentId>
 
 ---
 
-### Step 2：生成 IDENTITY.md
+#### A-2：生成 IDENTITY.md
 
 ```markdown
 # IDENTITY.md - Who Am I?
@@ -165,7 +165,7 @@ bash scripts/create_workspace.sh <agentId>
 
 ---
 
-### Step 3：生成 SOUL.md 骨架
+#### A-3：生成 SOUL.md 骨架
 
 **此时 BOOTSTRAP 还没执行，SOUL.md 只写骨架，等 BOOTSTRAP 阶段填充细节。**
 
@@ -182,7 +182,7 @@ bash scripts/create_workspace.sh <agentId>
 
 ---
 
-### Step 4：生成 AGENTS.md
+#### A-4：生成 AGENTS.md
 
 必须包含三个部分：
 
@@ -207,7 +207,7 @@ bash scripts/create_workspace.sh <agentId>
 
 ---
 
-### Step 5：自动生成 TOOLS.md
+#### A-5：自动生成 TOOLS.md
 
 **根据 Phase 1 的 alsoAllow 列表自动生成，不进入 BOOTSTRAP 对话。**
 
@@ -222,7 +222,7 @@ bash scripts/create_workspace.sh <agentId>
 
 ---
 
-### Step 6：预埋 MEMORY.md
+#### A-6：预埋 MEMORY.md
 
 ```markdown
 # MEMORY.md - 长期记忆
@@ -244,7 +244,7 @@ bash scripts/create_workspace.sh <agentId>
 
 ---
 
-### Step 7：生成 HEARTBEAT.md
+#### A-7：生成 HEARTBEAT.md
 
 ```markdown
 # HEARTBEAT.md
@@ -260,7 +260,7 @@ bash scripts/create_workspace.sh <agentId>
 
 ---
 
-### Step 8：生成 BOOTSTRAP.md（仅员工 Agent 需要）
+#### A-8：生成 BOOTSTRAP.md
 
 > **功能型 Agent 跳过此步骤。** 功能型 Agent 的 workspace 由创建者在 Phase 2 直接写好，不通过对话初始化。
 
@@ -286,7 +286,7 @@ BOOTSTRAP.md 内部结构：
 
 ---
 
-### Step 9：生成 USER.md 骨架
+#### A-9：生成 USER.md 骨架
 
 ```markdown
 # USER.md - About Your Human
