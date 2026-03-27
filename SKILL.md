@@ -18,6 +18,23 @@ metadata:
 
 # create-agent — 创建 Agent 及 Workspace
 
+## 两类 Agent 快速对比
+
+> 在创建任何 Agent 之前，必须先判断它属于哪一类。两类路径差异显著，确认后再收集信息。
+
+| 维度 | 人伴型（员工型） | 功能型（任务/领域型） |
+|---|---|---|
+| **面向谁** | 有真人用户直接对话 | 面向任务，可被 Agent 调度或人直接用 |
+| **SOUL.md** | 写骨架，BOOTSTRAP 阶段填充 | 直接写完整版，体现专业判断倾向 |
+| **BOOTSTRAP.md** | ✅ 需要，首次对话动态初始化 | ❌ 不需要 |
+| **USER.md** | ✅ 需要，积累用户个人知识 | ❌ 不需要（最多记录调用方偏好） |
+| **AGENTS.md 重点** | 场景触发规则 + 记忆规则 | 任务接口规范（输入/输出/边界） |
+| **MEMORY.md 方向** | 个人偏好 + 业务判断模式 | 领域知识 + 任务经验 |
+| **进化路径** | 了解他 → 预判他 → 替代他 | 更实用 → 更专业 → 更好解决需求 |
+| **脚本参数** | `--type human` | `--type functional` |
+
+---
+
 ## 两类 Agent 的本质区别
 
 > 在创建任何 Agent 之前，必须先判断它属于哪一类。这决定了 workspace 的整个设计逻辑。
@@ -61,7 +78,9 @@ metadata:
 ## Phase 0 — 安装后配置（首次使用前执行一次）
 
 > 只在 skill 安装后第一次使用时执行，之后跳过。
-> 判断依据：`config/org-context.md` 是否已填写。
+> **判断依据：** 读取 `config/org-context.md`，检查"公司："和"业务："字段后面是否均有实质内容。
+> 任意一个为空 → 执行 Phase 0；两个都有内容 → 跳过。
+> （不以文件是否存在为判断标准，空文件 ≠ 已填写）
 
 ### Step 1：读取记忆，自动提取
 
@@ -108,17 +127,19 @@ metadata:
 
 **所有信息必须确认后才能进入 Phase 2，不猜测，不假设。**
 
+> ⚠️ **Agent 类型必须第一个确认**，它决定 Phase 2 走哪条路径，两条路差异显著。
+> 收集顺序：先定类型 → 再按对应路径收集剩余信息。
+
 ```
-必填：
+必填（按此顺序收集）：
+□ Agent 类型     【第一个确认】员工 Agent（有真人用户直接对话）
+                              还是功能型 Agent（面向任务/被其他 Agent 调度）
 □ agentId        全小写，字母+连字符（如 staff-ou_xxx、data-analyst）
 □ 名字 + emoji   用于 IDENTITY.md，也是 SOUL.md 的叙事起点
 □ 核心职责       1-2句话（这个 Agent 主要干什么）
 □ 明确不做什么   至少说出 2-3 条边界
 □ 父 Agent id    谁来调度它（用于 allowAgents 白名单）
 □ alsoAllow 列表 需要哪些飞书/系统工具权限
-□ Agent 类型     员工 Agent（有真人用户）还是功能型 Agent（被其他 Agent 调度）
-
-> ⚠️ Agent 类型决定 Phase 2 的路径，两者差异显著，见下方说明。
 
 可选：
 ○ 是否需要专属 skills
@@ -140,7 +161,7 @@ metadata:
 #### A-1：创建目录结构
 
 ```bash
-bash scripts/create_workspace.sh <agentId>
+bash scripts/create_workspace.sh <agentId> --type human
 ```
 
 脚本创建：
@@ -149,6 +170,7 @@ bash scripts/create_workspace.sh <agentId>
 ├── memory/
 └── skills/   （如有专属 skill 需求）
 ```
+输出中会列出需要写入的文件，并标注哪些由 BOOTSTRAP 阶段填充。
 
 ---
 
@@ -315,7 +337,10 @@ BOOTSTRAP.md 内部结构：
 
 #### B-1：创建目录结构
 
-同路径 A，执行 `bash scripts/create_workspace.sh <agentId>`。
+```bash
+bash scripts/create_workspace.sh <agentId> --type functional
+```
+输出中会明确列出需要写入的文件，并提示不需要 USER.md / BOOTSTRAP.md。
 
 ---
 
@@ -454,8 +479,13 @@ python3 scripts/register_agent.py \
   --agent-id <agentId> \
   --workspace ~/.openclaw/agency-agents/<agentId> \
   --parent-id <父AgentId> \
-  --also-allow <工具1> <工具2> ...
+  --also-allow feishu_get_user feishu_im_user_message feishu_calendar_event
 ```
+
+> `--also-allow` 是空格分隔的多值参数，直接列出所有工具名即可。
+> `--agent-dir` 为**可选参数**，绝大多数情况下**不需要传**：
+> 仅在 OpenClaw 要求显式指定 agentDir（如自定义 agent 插件路径）时才传入。
+> 不传时 agentDir 字段不写入 openclaw.json，注册仍然有效。
 
 脚本执行：
 1. 备份 openclaw.json（带时间戳）
@@ -464,6 +494,11 @@ python3 scripts/register_agent.py \
 4. 执行 `openclaw config validate`
 5. validate 通过 → 继续；失败 → 自动回滚备份，报错退出
 
+💡 **首次使用或调试时**，可加 `--dry-run` 参数预览变更不写入：
+```bash
+python3 scripts/register_agent.py --agent-id <agentId> ... --dry-run
+```
+
 ⚠️ **双向绑定检查**：每次必须确认两个地方都改了。
 ⚠️ **不要手动改 openclaw.json**，用脚本。
 
@@ -471,12 +506,25 @@ python3 scripts/register_agent.py \
 
 ## Phase 4 — 重启与验证
 
+### Step 1：验证 workspace 完整性
+
+```bash
+bash scripts/verify_workspace.sh <agentId> --type human      # 人伴型
+bash scripts/verify_workspace.sh <agentId> --type functional # 功能型
+```
+
+脚本检查所有必须文件是否存在且有实质内容（不是空骨架）。
+有 ❌ 或 ⚠️ → 补充后重新验证，通过后再重启。
+
+### Step 2：重启 Gateway
+
 ```bash
 systemctl --user restart openclaw-gateway.service
 sleep 8   # 等待 optional 工具注册完成
 ```
 
-验证步骤：
+### Step 3：验证工具可用性
+
 1. 确认新 Agent 在 Gateway 日志里出现
 2. 确认 alsoAllow 里的工具已注册（不以"重启完成"作为结束）
 
