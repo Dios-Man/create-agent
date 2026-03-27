@@ -1,6 +1,9 @@
 # bootstrap-protocol.md — BOOTSTRAP.md 动态对话协议
 
-> 本文档是生成 BOOTSTRAP.md 时的蓝本。
+> 本文档是生成**员工 Agent** 的 BOOTSTRAP.md 时的蓝本。
+> 适用于：有真人用户直接对话的 Agent。
+> 功能型 Agent（被其他 Agent 调度）不使用本协议。
+>
 > BOOTSTRAP.md 的本质：一个有目标的对话协议，不是问卷。
 > AI 读完它，知道要往哪走，知道收集什么、怎么问、写到哪里。
 

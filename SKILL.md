@@ -46,7 +46,9 @@ metadata:
 □ 明确不做什么   至少说出 2-3 条边界
 □ 父 Agent id    谁来调度它（用于 allowAgents 白名单）
 □ alsoAllow 列表 需要哪些飞书/系统工具权限
-□ Agent 类型     员工 Agent（有真人用户）还是功能型 Agent（被调度）
+□ Agent 类型     员工 Agent（有真人用户）还是功能型 Agent（被其他 Agent 调度）
+
+> ⚠️ Agent 类型决定 Phase 2 的路径，两者差异显著，见下方说明。
 
 可选：
 ○ 是否需要专属 skills
@@ -54,6 +56,24 @@ metadata:
 ```
 
 如果是员工 Agent，agentId 通常是 `staff-<open_id前几位>`。
+
+---
+
+## Agent 类型说明
+
+### 员工 Agent（有真人用户）
+- 有真人通过飞书等渠道直接对话
+- **需要 BOOTSTRAP.md**：员工首次对话时通过动态问答完成 workspace 定制
+- SOUL.md 关注沟通风格、个人偏好、语气
+- USER.md 是核心文件
+- HEARTBEAT.md 包含 workspace 精炼任务
+
+### 功能型 Agent（被其他 Agent 调度）
+- 无直接真人用户，由调度 Agent 通过 sessions_spawn 调用
+- **不需要 BOOTSTRAP.md**
+- SOUL.md 关注专业能力、任务边界、输出格式
+- USER.md 通常不存在或只记录调度方的偏好
+- AGENTS.md 里的多 Agent 协作规则是重点（接受什么输入、返回什么格式）
 
 ---
 
@@ -94,7 +114,7 @@ bash scripts/create_workspace.sh <agentId>
 
 骨架必须包含：
 - 名字（第一句话的锚点）
-- 公司背景预埋（山木千年，抖音本地生活代运营）
+- 公司背景预埋（填入你的公司名称和主营业务）
 - 语言默认值（中文）
 - 基本存在感描述（根据 Phase 1 的职责信息写 1-2 句）
 
@@ -151,16 +171,18 @@ bash scripts/create_workspace.sh <agentId>
 # MEMORY.md - 长期记忆
 
 ## 关于公司
-- 公司：山木千年文化传媒有限公司
-- 业务：抖音本地生活代运营
+- 公司：[填入你的公司名称]
+- 业务：[填入主营业务描述]
 
 ## 关于这个 Agent 的定位
 - agentId: <agentId>
+- 类型: <员工 Agent / 功能型 Agent>
 - 调度者: <父 Agent id>
 - 核心职责: <Phase 1 收集的职责>
 
 ## 关于用户
-（BOOTSTRAP.md 执行后填写）
+（员工 Agent：BOOTSTRAP.md 执行后填写）
+（功能型 Agent：记录调度方的输入/输出偏好）
 ```
 
 ---
@@ -181,7 +203,9 @@ bash scripts/create_workspace.sh <agentId>
 
 ---
 
-### Step 8：生成 BOOTSTRAP.md（最重要的产出物）
+### Step 8：生成 BOOTSTRAP.md（仅员工 Agent 需要）
+
+> **功能型 Agent 跳过此步骤。** 功能型 Agent 的 workspace 由创建者在 Phase 2 直接写好，不通过对话初始化。
 
 **读取 `references/bootstrap-protocol.md`，按协议生成完整的 BOOTSTRAP.md。**
 
