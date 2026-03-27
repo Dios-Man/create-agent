@@ -41,7 +41,7 @@ create-agent/
 需要先安装 [OpenClaw](https://github.com/openclaw/openclaw)。
 
 ```bash
-clawhub install create-agent
+clawhub install openclaw-create-agent
 ```
 
 或手动克隆到 `~/.openclaw/skills/create-agent/`。

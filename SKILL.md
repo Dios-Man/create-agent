@@ -6,6 +6,14 @@ description: >
   适用场景：新员工飞书配对后创建对应 Agent、新增功能型专业 Agent。
   触发词：创建 agent、新建 agent、添加 agent、新员工配对后创建、
          新增专业 agent。
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - python3
+        - systemctl
+        - openclaw
+  github: https://github.com/Dios-Man/create-agent
 ---
 
 # create-agent — 创建 Agent 及 Workspace
