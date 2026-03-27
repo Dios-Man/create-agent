@@ -1,5 +1,7 @@
 # create-agent
 
+> 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的 AgentSkill
+
 OpenClaw skill：创建 Agent 及 Workspace 的完整流程工具。
 
 ## 功能
@@ -35,6 +37,8 @@ create-agent/
 ```
 
 ## 安装
+
+需要先安装 [OpenClaw](https://github.com/openclaw/openclaw)。
 
 ```bash
 clawhub install create-agent
