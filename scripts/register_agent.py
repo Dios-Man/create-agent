@@ -38,6 +38,14 @@ OPENCLAW_JSON = Path.home() / ".openclaw" / "openclaw.json"
 AGENCY_BASE = Path.home() / ".openclaw" / "agency-agents"
 
 
+def normalize_heartbeat(interval_minutes):
+    """将分钟数转换为 OpenClaw 标准的 heartbeat.every 格式"""
+    if interval_minutes >= 60 and interval_minutes % 60 == 0:
+        return f"{interval_minutes // 60}h"
+    else:
+        return f"{interval_minutes}m"
+
+
 def load_config():
     with open(OPENCLAW_JSON, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -164,7 +172,8 @@ def main():
     print(f"  父 Agent:   {parent_id}")
     print(f"  工具权限:   {also_allow or '(无)'}")
     print(f"  模型:       {model or '(继承默认)'}")
-    print(f"  心跳间隔:   {heartbeat_interval} 分钟")
+    normalized_hb = normalize_heartbeat(heartbeat_interval) if heartbeat_interval else '(无)'
+    print(f"  心跳间隔:   {heartbeat_interval} 分钟 → {normalized_hb}")
     print()
 
     backup_path = None
@@ -196,8 +205,9 @@ def main():
         # heartbeat 配置（功能型 Agent 也需要，用于进化机制和闲置检查）
         # 正确格式为 heartbeat.every，值为字符串如 "1h"，不使用 interval
         if heartbeat_interval and heartbeat_interval > 0:
+            normalized = normalize_heartbeat(heartbeat_interval)
             new_agent["heartbeat"] = {
-                "every": f"{heartbeat_interval}m"
+                "every": normalized
             }
 
         # 写入 agents.list

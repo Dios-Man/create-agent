@@ -132,6 +132,22 @@ def main():
         for pid in parents_with_ref:
             print(f"  - {pid}.subagents.allowAgents 移除：{agent_id}")
         archive_workspace(workspace_path, agent_id, dry_run=True)
+
+        # 预览 MEMORY.md 清理
+        print("\n=== [DRY-RUN] MEMORY.md 清理预览 ===")
+        memory_previewed = False
+        for agent in new_agents_list:
+            parent_ws = Path(agent.get("workspace", "")).expanduser()
+            memory_path = parent_ws / "MEMORY.md"
+            if not memory_path.exists():
+                continue
+            content = memory_path.read_text(encoding="utf-8")
+            if f"## 子 Agent：{agent_id}" in content:
+                print(f"  - 将从 {agent.get('id')} 的 MEMORY.md 移除子 Agent 档案：{memory_path}")
+                memory_previewed = True
+        if not memory_previewed:
+            print("  ℹ️  未在父 Agent MEMORY.md 中找到子 Agent 档案")
+
         print("\n⚠️  DRY-RUN 完成，未写入任何文件。去掉 --dry-run 后执行实际注销。")
         return
 
@@ -177,6 +193,27 @@ def main():
         # Step 5: 存档 workspace
         print("\n=== 存档 workspace ===")
         archive_workspace(workspace_path, agent_id, dry_run=False)
+
+        # Step 6: 清理父 Agent MEMORY.md 中的子 Agent 档案
+        print("\n=== 清理父 Agent MEMORY.md ===")
+        cleaned = False
+        for agent in new_agents_list:
+            parent_ws = Path(agent.get("workspace", "")).expanduser()
+            memory_path = parent_ws / "MEMORY.md"
+            if not memory_path.exists():
+                continue
+            content = memory_path.read_text(encoding="utf-8")
+            if f"## 子 Agent：{agent_id}" not in content:
+                continue
+            import re
+            pattern = rf"## 子 Agent：{re.escape(agent_id)}.*?(?=\n## |\Z)"
+            new_content = re.sub(pattern, "", content, flags=re.DOTALL)
+            new_content = re.sub(r'\n{3,}', '\n\n', new_content)
+            memory_path.write_text(new_content, encoding="utf-8")
+            print(f"  ✅ 已从 {agent.get('id')} 的 MEMORY.md 移除子 Agent 档案：{memory_path}")
+            cleaned = True
+        if not cleaned:
+            print("  ℹ️  未在父 Agent MEMORY.md 中找到子 Agent 档案，跳过")
 
     except Exception as e:
         print(f"❌ 发生错误：{e}")

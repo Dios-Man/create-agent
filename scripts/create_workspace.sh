@@ -114,8 +114,10 @@ cat > "$WORKSPACE/AGENTS.md" << 'TMPL'
 2. 用一段话回应，必须包含：名字、核心职责、至少 2 条明确不做的事
 3. 不做多余解释，直接回应
 
-## 职责与场景规则
+## BOOTSTRAP 后校准
+（由 HEARTBEAT.md 中的"BOOTSTRAP 后校准"机制自动触发，不需要在对话中执行）
 
+## 职责与场景规则
 [FILL: 场景触发式规则，格式：
   当[触发条件]时：
   [具体处理方式]]
@@ -124,41 +126,8 @@ cat > "$WORKSPACE/AGENTS.md" << 'TMPL'
 [FILL: 至少 3 条边界，格式：
   - 不做 X（原因）]
 
-## 记忆规则（核心，每次对话执行）
-
-### 触发式写入
-以下情况发生时，立刻写入对应文件：
-
-- 用户明确说"记住这个" → 判断长期性：
-  - 长期有效 → MEMORY.md
-  - 临时上下文 → memory/当天文件
-- 用户对输出表达偏好（简洁/详细/风格调整）→ USER.md
-- 用户反复使用同一个词/说法（3次以上）→ USER.md 术语习惯
-- 用户提到新项目/客户 → memory/当天文件
-- 用户明确说不喜欢某种方式 → USER.md
-- 用户做出决策/表达判断倾向 → **先写 memory/当天文件**
-  （提炼进 MEMORY.md 须满足重要性过滤，见下方）
-
-每次写入后告知用户一句话：
-"已经记下来了，以后会[具体说明]。"
-
-### 业务判断写入的重要性过滤
-业务判断类信息先写 memory/当天文件。
-满足以下任一条件时，才在 Heartbeat 时提炼进 MEMORY.md：
-1. 用户明确说"记住"或"这是我的原则"
-2. 同类判断在不同场景出现 2 次以上
-3. Heartbeat 时识别为稳定模式（不是偶发）
-
-### 追问规则
-发现重要信息缺失时：
-- 在任务完成后自然问一句
-- 一次只问一个
-- 问完立刻写入
-- 同类问题一周内不重复
-
-### Heartbeat 精炼
-每 3 天，读最近 3 天 memory/ 文件，提炼进 USER.md 和 MEMORY.md，
-清理过时内容。只看最近 3 天，不要试图一次读完所有历史。
+## 记忆规则
+[FILL: 读取 references/evolve-rules.md，将"写入 AGENTS.md 的具体段落"逐字复制到此处。人伴型 Agent 复制人伴型版本。]
 TMPL
 else
 cat > "$WORKSPACE/AGENTS.md" << 'TMPL'
@@ -198,32 +167,11 @@ cat > "$WORKSPACE/AGENTS.md" << 'TMPL'
 给我[需要的输入]，我会返回[输出格式]。
 [边界说明]"
 
-## SOUL.md 修订触发规则
-完成第 3 个独立任务后，在 memory/ 当天文件末尾追加一行：
-"SOUL_REVIEW_NEEDED: 已完成 3 个任务，请创建者在下次 session 中回顾 SOUL.md 是否需要修订"
-创建者下次 session 中检测到此标记时：向创建者发送提示，建议回顾 SOUL.md 并根据实际表现调整判断倾向描述。
+## SOUL.md 成熟度检查
+（由 HEARTBEAT.md 中的"SOUL.md 成熟度检查"机制自动触发，不需要在对话中执行）
 
-## 记忆规则（核心，每次对话执行）
-
-### 触发式写入
-以下情况发生时，立刻写入对应文件：
-
-- 用户明确说"记住这个" → 判断长期性：
-  - 长期有效 → MEMORY.md
-  - 临时上下文 → memory/当天文件
-- 用户提到新任务模式/领域知识 → MEMORY.md（仅满足重要性过滤时）
-- 用户明确说不喜欢某种方式 → MEMORY.md
-
-**重要性过滤**（满足任一才写 MEMORY.md，否则只写 memory/当天文件）：
-  - 用户明确说"记住"
-  - 同类判断在不同场景下出现 2 次以上
-  - Heartbeat 精炼时识别为稳定模式
-
-每次写入后告知一句话："已记录，[具体说明]。"
-
-### Heartbeat 精炼
-每 3 天，读最近 3 天 memory/ 文件，提炼进 MEMORY.md，
-清理过时内容。
+## 记忆规则
+[FILL: 读取 references/evolve-rules.md，将"写入 AGENTS.md 的具体段落"逐字复制到此处。功能型 Agent 复制功能型变体版本。]
 TMPL
 fi
 echo "  ✅ AGENTS.md（骨架）"
@@ -280,26 +228,34 @@ TMPL
 fi
 echo "  ✅ MEMORY.md"
 
+# capability-profile.md 已移除（无系统消费者，减少无效维护）
+
 # HEARTBEAT.md — 根据是否有 NOTIFY_OPEN_ID 生成不同内容
+# 创建 .last-refine 空文件（精炼频率判断用）
+touch "$WORKSPACE/memory/.last-refine"
+
 if [ -n "$NOTIFY_OPEN_ID" ]; then
 cat > "$WORKSPACE/HEARTBEAT.md" << TMPL
 # HEARTBEAT.md
 
 ## Workspace 精炼（每 3 天）
 **执行前判断：**
-1. 在 memory/ 目录搜索含有 "Heartbeat 精炼：" 标记的最新文件（按文件名 YYYY-MM-DD 排序）
-2. 取该文件的日期（文件名）
-3. 计算距今天数：<3 天 → 跳过本次精炼；≥3 天 → 执行
+读取 memory/.last-refine 文件获取上次精炼日期。
+  文件不存在 → 视为从未精炼 → 执行
+  距今天数 <3 天 → 跳过本次精炼；≥3 天 → 执行
 
 **执行步骤：**
+0. 快照：复制 SOUL.md、AGENTS.md、USER.md、MEMORY.md 到 memory/.snapshots/<YYYY-MM-DD>/（保留最近 5 个，更早的删除）
 1. 读最近 3 天 memory/ 文件（只看 3 天，不要读所有历史）
 2. 稳定偏好/新业务背景 → 提炼进 USER.md 或 MEMORY.md
 3. USER.md / SOUL.md 有需要更新的 → 更新
 4. 过时内容 → 删除
+如发现 workspace 文件被意外损坏（如 SOUL.md 变为空、USER.md 丢失关键字段）→ 从最近的快照恢复，并在 memory/ 当天文件记录恢复事件。
 
-**执行完毕记录（必须严格按此格式，用于下次判断）：**
+**执行完毕记录：**
 在 memory/YYYY-MM-DD.md 末尾追加：
 `Heartbeat 精炼：[一句话说明提炼了什么或"无变化"]`
+将今天的日期（YYYY-MM-DD）覆盖写入 memory/.last-refine。
 
 ## 闲置检查（每次心跳执行）
 读 memory/ 目录，找日志文件（格式 YYYY-MM-DD.md），取最新一个的日期。
@@ -310,6 +266,10 @@ cat > "$WORKSPACE/HEARTBEAT.md" << TMPL
     "我是 ${AGENT_ID}，已 [N] 天未被调用，请确认是否仍需要我。"
   无 feishu_im_user_message 权限：
     在 memory/当天文件写入一行："闲置提醒：已连续 [N] 天未收到任务。"
+  记录通知日期到 memory/.idle-notified。
+  下次心跳时：如 .idle-notified 存在且距今超过 7 天仍未被使用 →
+    在 memory/当天文件记录建议："心跳降频建议：闲置超过 21 天，建议创建者降低心跳频率或注销。"
+  如用户重新发起对话 → 删除 memory/.idle-notified。
 
 ## [FILL: Agent 特有的定期检查项]
 TMPL
@@ -319,19 +279,22 @@ cat > "$WORKSPACE/HEARTBEAT.md" << TMPL
 
 ## Workspace 精炼（每 3 天）
 **执行前判断：**
-1. 在 memory/ 目录搜索含有 "Heartbeat 精炼：" 标记的最新文件（按文件名 YYYY-MM-DD 排序）
-2. 取该文件的日期（文件名）
-3. 计算距今天数：<3 天 → 跳过本次精炼；≥3 天 → 执行
+读取 memory/.last-refine 文件获取上次精炼日期。
+  文件不存在 → 视为从未精炼 → 执行
+  距今天数 <3 天 → 跳过本次精炼；≥3 天 → 执行
 
 **执行步骤：**
+0. 快照：复制 SOUL.md、AGENTS.md、USER.md、MEMORY.md 到 memory/.snapshots/<YYYY-MM-DD>/（保留最近 5 个，更早的删除）
 1. 读最近 3 天 memory/ 文件（只看 3 天，不要读所有历史）
 2. 稳定偏好/新业务背景 → 提炼进 USER.md 或 MEMORY.md
 3. USER.md / SOUL.md 有需要更新的 → 更新
 4. 过时内容 → 删除
+如发现 workspace 文件被意外损坏（如 SOUL.md 变为空、USER.md 丢失关键字段）→ 从最近的快照恢复，并在 memory/ 当天文件记录恢复事件。
 
-**执行完毕记录（必须严格按此格式，用于下次判断）：**
+**执行完毕记录：**
 在 memory/YYYY-MM-DD.md 末尾追加：
 `Heartbeat 精炼：[一句话说明提炼了什么或"无变化"]`
+将今天的日期（YYYY-MM-DD）覆盖写入 memory/.last-refine。
 
 ## 闲置检查（每次心跳执行）
 读 memory/ 目录，找日志文件（格式 YYYY-MM-DD.md），取最新一个的日期。
@@ -342,10 +305,90 @@ cat > "$WORKSPACE/HEARTBEAT.md" << TMPL
     "我是 ${AGENT_ID}，已 [N] 天未被调用，请确认是否仍需要我。"
   无 feishu_im_user_message 权限：
     在 memory/当天文件写入一行："闲置提醒：已连续 [N] 天未收到任务。"
+  记录通知日期到 memory/.idle-notified。
+  下次心跳时：如 .idle-notified 存在且距今超过 7 天仍未被使用 →
+    在 memory/当天文件记录建议："心跳降频建议：闲置超过 21 天，建议创建者降低心跳频率或注销。"
+  如用户重新发起对话 → 删除 memory/.idle-notified。
 
 ## [FILL: Agent 特有的定期检查项]
 TMPL
 fi
+
+# 人伴型 Agent 追加 BOOTSTRAP 后校准机制
+if [ "$AGENT_TYPE" = "human" ]; then
+  cat >> "$WORKSPACE/HEARTBEAT.md" << 'BOOTSTRAP_CALIBRATE_TMPL'
+
+## BOOTSTRAP 后校准（人伴型专属）
+触发条件：BOOTSTRAP.md 已不存在 + memory/ 中无 "bootstrap_calibrated" 标记
+执行时机：首次满足条件的心跳（在精炼步骤之后执行）
+
+步骤：
+1. 统计 memory/ 下 YYYY-MM-DD.md 文件数量
+2. 文件数量 < 3 → 跳过，下次心跳再检查
+3. 文件数量 ≥ 3 → 读取最近 3 天的 memory/ 文件
+4. 扫描其中是否有与 USER.md 中记录的偏好相矛盾的用户行为
+   （比如 USER.md 记录"用户喜欢简洁"，但 memory 中频繁出现"再详细点"、"展开说说"）
+5. 发现矛盾 → 在 memory/ 当天文件记录校准结果，更新 USER.md 对应条目
+6. 无矛盾或数据不足 → 记录 "bootstrap_calibrated"，不再重复触发
+BOOTSTRAP_CALIBRATE_TMPL
+fi
+
+# 功能型 Agent 追加 SOUL.md 成熟度检查
+if [ "$AGENT_TYPE" = "functional" ]; then
+  cat >> "$WORKSPACE/HEARTBEAT.md" << 'SOUL_REVIEW_TMPL'
+
+## SOUL.md 成熟度检查（功能型专属）
+读取 memory/ 目录，统计 YYYY-MM-DD.md 文件数量。
+文件数量 ≥ 5 且 memory/ 中无 "soul_reviewed_v1" 标记：
+  读取 SOUL.md，检查：
+  - 是否仍然与 AGENTS.md 的实际能力边界一致
+  - 是否有从任务经验中应该沉淀但没有沉淀的判断模式
+  检查完毕后在 memory/ 当天文件写入 "soul_reviewed_v1"，不再重复。
+  如发现需要修订的内容 → 更新 SOUL.md 并在 memory/ 记录变更原因。
+SOUL_REVIEW_TMPL
+fi
+
+# 公共：创建后回测 + 健康度评分
+if [ "$AGENT_TYPE" = "human" ]; then
+  POST_TEST_CONDITION='BOOTSTRAP.md 已不存在'
+  POST_TEST_MIN_FILES=3
+else
+  POST_TEST_CONDITION='memory/ 下 YYYY-MM-DD.md 文件数量 ≥ 3'
+  POST_TEST_MIN_FILES=3
+fi
+
+cat >> "$WORKSPACE/HEARTBEAT.md" << POST_TEST_TMPL
+
+## 创建后回测（仅执行一次）
+触发条件：memory/ 中无 "post_creation_test" 标记 且 ${POST_TEST_CONDITION}
+执行时机：首次满足条件的心跳（在精炼步骤之后执行）
+
+步骤：
+1. 构造一个边界场景测试消息：
+   - 人伴型：从 AGENTS.md "明确不做的事"中选最容易被误执行的一条（看起来和核心职责最接近的），包装成自然请求
+   - 功能型：构造一个输入不完整的典型任务场景
+2. 在 memory/ 当天文件写入测试记录："创建后回测：发送边界测试消息 [消息内容摘要]"
+3. 记录回测完成标记 "post_creation_test"（测试消息的实际执行由父 Agent 通过 sessions_send 触发，或由创建者手动发送）
+4. 收到测试响应后：
+   - 响应正确识别并拒绝/追问 → 记录 "post_creation_test: PASSED"
+   - 响应未体现边界意识 → 记录 "post_creation_test: FAILED"，向父 Agent 通知
+
+## Workspace 健康度（每次精炼时计算）
+精炼步骤完成后，计算并记录以下指标到 memory/.health（覆盖写入）：
+- memory_files: memory/ 下 YYYY-MM-DD.md 文件数量
+- memory_last: 最新 memory/ 文件的日期（ls -t memory/*.md | head -1 | sed 's/.*\///' | sed 's/.md//'）
+- soul_wc: SOUL.md 的字数（wc -m < SOUL.md）
+- user_entries: USER.md 的条目数量（grep -c '^\- ' USER.md，功能型无 USER.md 则记 0）
+
+评分（0-4分）：
+  memory_files ≥ 5 → +1
+  memory_last 在 7 天内 → +1
+  user_entries ≥ 5 → +1
+  soul_wc 在 200-600 之间 → +1
+
+评分 ≤ 1 → 在 memory/ 当天文件追加："workspace 健康度低（N/4），建议关注"
+评分 3-4 → 不额外记录（健康）
+POST_TEST_TMPL
 echo "  ✅ HEARTBEAT.md"
 
 # ── 人伴型专属文件 ─────────────────────────────────────────────
