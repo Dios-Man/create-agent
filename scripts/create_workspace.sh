@@ -195,8 +195,8 @@ cat > "$WORKSPACE/MEMORY.md" << TMPL
 # MEMORY.md - 长期记忆
 
 ## 关于公司
-- 公司：[FILL: 从 config/org-context.md 读取]
-- 业务：[FILL: 从 config/org-context.md 读取]
+- 公司：[FILL: 从 ~/.openclaw/workspace/agents-config/org-context.md 读取]
+- 业务：[FILL: 从 ~/.openclaw/workspace/agents-config/org-context.md 读取]
 
 ## 关于这个 Agent 的定位
 - agentId: ${AGENT_ID}

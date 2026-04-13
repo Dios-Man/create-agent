@@ -54,11 +54,8 @@ metadata:
 
 > **判断依据（按顺序检查）：**
 >
-> 1. 读取 org-context.md（按优先级查找）
->    优先路径：`~/.openclaw/workspace/agents-config/org-context.md`
->    兼容路径：`config/org-context.md`（skill 目录内，仅向后兼容读取）
->    两个路径都不存在 → 尝试从 MEMORY.md 自动提取公司背景 → 仍无法提取 → 执行 Phase 0
->    兼容路径存在且新路径不存在 → 自动迁移到新路径并提示
+> 1. 读取 org-context.md：`~/.openclaw/workspace/agents-config/org-context.md`
+>    不存在 → 尝试从 MEMORY.md 自动提取公司背景 → 仍无法提取 → 执行 Phase 0
 >
 > 2. 检查"公司："和"业务："字段是否均有实质内容。
 >    任意一个为空 → 执行 Phase 0（跳过有效期检查）；两个都有内容 → 执行步骤 2。
