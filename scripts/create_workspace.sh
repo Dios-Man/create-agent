@@ -99,9 +99,14 @@ cat > "$WORKSPACE/AGENTS.md" << 'TMPL'
 
 ## 每次对话开始时
 1. 读 BOOTSTRAP.md（如存在，立即执行初始化流程）
-2. 读 SOUL.md
-3. 读 USER.md（如存在）
-4. 新 session 第一轮时，读 memory/今天和昨天
+2. 如果 BOOTSTRAP.md 不存在，但 memory/.bootstrap-backup-*.md 存在：
+   → 检查 USER.md 是否有实质内容（称呼/岗位字段非空）
+   → 若 USER.md 仍是骨架 → 向用户说明初始化可能未完成，问是否重新执行
+     重新执行时：从备份文件恢复 BOOTSTRAP.md，删除备份文件，重启初始化
+   → 若 USER.md 有实质内容 → 删除备份文件（初始化已完成）
+3. 读 SOUL.md
+4. 读 USER.md（如存在）
+5. 新 session 第一轮时，读 memory/今天和昨天
 
 ## 首次激活自检响应规则
 当收到消息"请读取你的 workspace，用一段话说清楚：你是谁、主要职责是什么、有哪些明确不做的事"时：
@@ -193,6 +198,11 @@ cat > "$WORKSPACE/AGENTS.md" << 'TMPL'
 给我[需要的输入]，我会返回[输出格式]。
 [边界说明]"
 
+## SOUL.md 修订触发规则
+完成第 3 个独立任务后，在 memory/ 当天文件末尾追加一行：
+"SOUL_REVIEW_NEEDED: 已完成 3 个任务，请创建者在下次 session 中回顾 SOUL.md 是否需要修订"
+创建者下次 session 中检测到此标记时：向创建者发送提示，建议回顾 SOUL.md 并根据实际表现调整判断倾向描述。
+
 ## 记忆规则（核心，每次对话执行）
 
 ### 触发式写入
@@ -245,6 +255,11 @@ cat > "$WORKSPACE/MEMORY.md" << TMPL
 - 类型: [AUTO: human / functional]
 - 核心职责: [FILL: Phase 1 收集]
 - 调度者: [FILL: 父 Agent id]
+
+## Workspace 元信息
+- workspace_version: 1.1
+- created_by_skill: create-agent
+- created_at: ${TODAY}
 TMPL
 
 if [ "$AGENT_TYPE" = "human" ]; then
@@ -271,12 +286,20 @@ cat > "$WORKSPACE/HEARTBEAT.md" << TMPL
 # HEARTBEAT.md
 
 ## Workspace 精炼（每 3 天）
+**执行前判断：**
+1. 在 memory/ 目录搜索含有 "Heartbeat 精炼：" 标记的最新文件（按文件名 YYYY-MM-DD 排序）
+2. 取该文件的日期（文件名）
+3. 计算距今天数：<3 天 → 跳过本次精炼；≥3 天 → 执行
+
+**执行步骤：**
 1. 读最近 3 天 memory/ 文件（只看 3 天，不要读所有历史）
 2. 稳定偏好/新业务背景 → 提炼进 USER.md 或 MEMORY.md
 3. USER.md / SOUL.md 有需要更新的 → 更新
 4. 过时内容 → 删除
-5. 精炼完成后，在当天 memory/ 文件里记录一行：
-   "Heartbeat 精炼：[提炼/清理摘要]"
+
+**执行完毕记录（必须严格按此格式，用于下次判断）：**
+在 memory/YYYY-MM-DD.md 末尾追加：
+`Heartbeat 精炼：[一句话说明提炼了什么或"无变化"]`
 
 ## 闲置检查（每次心跳执行）
 读 memory/ 目录，找日志文件（格式 YYYY-MM-DD.md），取最新一个的日期。
@@ -295,12 +318,20 @@ cat > "$WORKSPACE/HEARTBEAT.md" << TMPL
 # HEARTBEAT.md
 
 ## Workspace 精炼（每 3 天）
+**执行前判断：**
+1. 在 memory/ 目录搜索含有 "Heartbeat 精炼：" 标记的最新文件（按文件名 YYYY-MM-DD 排序）
+2. 取该文件的日期（文件名）
+3. 计算距今天数：<3 天 → 跳过本次精炼；≥3 天 → 执行
+
+**执行步骤：**
 1. 读最近 3 天 memory/ 文件（只看 3 天，不要读所有历史）
 2. 稳定偏好/新业务背景 → 提炼进 USER.md 或 MEMORY.md
 3. USER.md / SOUL.md 有需要更新的 → 更新
 4. 过时内容 → 删除
-5. 精炼完成后，在当天 memory/ 文件里记录一行：
-   "Heartbeat 精炼：[提炼/清理摘要]"
+
+**执行完毕记录（必须严格按此格式，用于下次判断）：**
+在 memory/YYYY-MM-DD.md 末尾追加：
+`Heartbeat 精炼：[一句话说明提炼了什么或"无变化"]`
 
 ## 闲置检查（每次心跳执行）
 读 memory/ 目录，找日志文件（格式 YYYY-MM-DD.md），取最新一个的日期。

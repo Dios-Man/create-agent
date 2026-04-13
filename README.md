@@ -67,7 +67,7 @@
 
 ### 四 Phase 创建流程
 
-- **Phase 0** — 安装后配置（一次性，写入组织背景到 `config/org-context.md`，含 30 天有效期提醒）
+- **Phase 0** — 安装后配置（一次性，写入组织背景到 `~/.openclaw/workspace/agents-config/org-context.md`，含 30 天有效期提醒）
 - **Phase 1** — 信息收集（Agent 类型【第一确认】/ agentId / 工具权限 / 父 Agent）
 - **Phase 2** — Workspace 构造（按类型走不同路径，脚本自动生成带模板的骨架文件）
 - **Phase 3** — 系统注册（安全修改 openclaw.json，备份 + 双向绑定 + validate + 回滚 + 父 MEMORY 预埋）

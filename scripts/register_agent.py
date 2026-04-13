@@ -194,9 +194,11 @@ def main():
             new_agent["model"] = model
 
         # heartbeat 配置（功能型 Agent 也需要，用于进化机制和闲置检查）
-        new_agent["heartbeat"] = {
-            "interval": heartbeat_interval
-        }
+        # 正确格式为 heartbeat.every，值为字符串如 "1h"，不使用 interval
+        if heartbeat_interval and heartbeat_interval > 0:
+            new_agent["heartbeat"] = {
+                "every": f"{heartbeat_interval}m"
+            }
 
         # 写入 agents.list
         if existing:
@@ -246,7 +248,7 @@ def main():
             if agent_id not in orig_allow:
                 print(f"  + {parent_id}.subagents.allowAgents 新增：{agent_id}")
 
-            print(f"  + heartbeat.interval: {heartbeat_interval} 分钟")
+            print(f"  + heartbeat.every: {heartbeat_interval}m")
             if model:
                 print(f"  + model: {model}")
 

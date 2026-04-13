@@ -76,9 +76,7 @@ check_no_placeholder() {
   local filepath="$1"
   local label="$2"
 
-  if grep -q '\[FILL\]' "$filepath" 2>/dev/null || \
-     grep -q '\[FILL:' "$filepath" 2>/dev/null || \
-     grep -q '\[AUTO\]' "$filepath" 2>/dev/null; then
+  if grep -qE '\[FILL\]|\[FILL:|\[AUTO\]|（.*执行后填写）|（.*待填写）' "$filepath" 2>/dev/null; then
     echo "  ❌ 含未填充占位符 [FILL] / [AUTO]：$label"
     FAIL=$((FAIL + 1))
     return 1
@@ -142,34 +140,19 @@ check_memory_company() {
     return 0
   fi
 
-  # 找到"公司："行，检查后面是否有实质内容
-  local company_line
-  company_line=$(grep -m1 '^- 公司：' "$filepath" 2>/dev/null || echo "")
+  local company_val
+  company_val=$(grep -m1 '^- 公司：' "$filepath" 2>/dev/null | sed 's/^- 公司：//' | xargs)
 
-  if [ -z "$company_line" ]; then
-    echo "  ⚠️  MEMORY.md 缺少"公司："字段"
+  # 判断：为空、含FILL占位符、含"填写/执行后"提示文本 → 失败
+  if [ -z "$company_val" ] \
+    || echo "$company_val" | grep -qE '\[FILL|FILL\]' \
+    || echo "$company_val" | grep -qF '填写' \
+    || echo "$company_val" | grep -qF '执行后'; then
+    echo "  ❌ MEMORY.md \"公司：\"字段未填写（当前值：${company_val:-空}）"
     FAIL=$((FAIL + 1))
-  elif echo "$company_line" | grep -qE '\[FILL|（.*填写|$'; then
-    # 去掉"- 公司："前缀后检查是否为空或占位符
-    local company_val
-    company_val=$(echo "$company_line" | sed 's/^- 公司：//' | xargs)
-    if [ -z "$company_val" ] || [[ "$company_val" == *"FILL"* ]] || [[ "$company_val" == *"填写"* ]]; then
-      echo "  ❌ MEMORY.md "公司："字段未填写"
-      FAIL=$((FAIL + 1))
-    else
-      echo "  ✅ MEMORY.md 公司信息已填写：$company_val"
-      PASS=$((PASS + 1))
-    fi
   else
-    local company_val
-    company_val=$(echo "$company_line" | sed 's/^- 公司：//' | xargs)
-    if [ -z "$company_val" ]; then
-      echo "  ❌ MEMORY.md "公司："字段为空"
-      FAIL=$((FAIL + 1))
-    else
-      echo "  ✅ MEMORY.md 公司信息已填写：$company_val"
-      PASS=$((PASS + 1))
-    fi
+    echo "  ✅ MEMORY.md 公司信息已填写：$company_val"
+    PASS=$((PASS + 1))
   fi
 }
 
