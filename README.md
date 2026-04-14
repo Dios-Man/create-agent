@@ -90,16 +90,27 @@
 | `create_workspace.sh` | 创建目录 + 生成带模板的骨架文件（含 HEARTBEAT 闲置检查逻辑） |
 | `register_agent.py` | 注册到 openclaw.json（备份/双向绑定/validate/回滚/heartbeat/父MEMORY预埋） |
 | `deregister_agent.py` | 注销 Agent（反向操作，workspace 存档不删除） |
-| `verify_workspace.sh` | 两层验证：存在性+行数 / 内容特征（名字/边界/占位符/公司信息） |
+| `verify_workspace.sh` | 两层验证：存在性+行数 / 内容特征（名字/边界/占位符/公司信息），按类型跳过合法占位 |
 
 ### 持续进化机制
 
 workspace 不是静态配置，是会生长的知识库：
 
-- **触发式写入**：对话中感知到偏好、判断、术语习惯，立刻写入对应文件
-- **业务判断过滤**：判断类信息先写日记，满足重要性条件才提炼进 MEMORY.md（防止膨胀）
+- **P0/P1 分层记忆**：P0（必须写入）直接写 MEMORY.md，P1（有价值）先写日记再精炼
+- **触发式写入**：对话中感知到偏好、判断、工作流、术语习惯，按优先级写入
+- **P1 提升机制**：同类信息出现 2 次以上才从日记提炼进 MEMORY.md（防止膨胀）
 - **Heartbeat 精炼**：每 3 天扫描日记，提炼稳定知识，清理过时内容
+- **Workspace 成熟度**：每 7 天评估用户画像、业务知识、SOUL 个性三维成熟度
 - **闲置感知**：14 天无调用自动通知调度者（或写入闲置提醒）
+
+### Agent 进化里程碑
+
+| 阶段 | 达成条件 | 成熟度 |
+|---|---|---|
+| 🌱 种子 | 创建完成，workspace 完整 | 0-20 |
+| 📋 知道你是谁 | BOOTSTRAP 完成，有性格有偏好 | 20-40 |
+| 🔍 理解你的工作 | 2-4 周，有业务判断积累 | 40-70 |
+| 🎯 不用你说就知道 | 主动提供信息，无需重复解释 | 70+ |
 
 ---
 
@@ -113,8 +124,9 @@ create-agent/
 ├── references/
 │   ├── file-formats.md               # 每个 workspace 文件"写好"的标准
 │   ├── soul-writing-guide.md         # SOUL.md 写作指南（人伴型 + 功能型专节）
-│   ├── evolve-rules.md               # workspace 持续生长规则（含重要性过滤）
-│   └── bootstrap-protocol.md        # BOOTSTRAP.md 动态对话协议（含断点续接 + 默认值处理）
+│   ├── evolve-rules.md               # workspace 持续生长规则（P0/P1 分层触发）
+│   ├── memory-rules.md               # 记忆规则精简模板（独立于 AGENTS.md，释放场景规则空间）
+│   └── bootstrap-protocol.md        # BOOTSTRAP.md 动态对话协议（分批写入 + 断点续接）
 └── scripts/
     ├── create_workspace.sh           # 创建骨架文件（--type human|functional，--notify-open-id）
     ├── register_agent.py             # 安全注册（--model / --heartbeat-interval / --dry-run）
